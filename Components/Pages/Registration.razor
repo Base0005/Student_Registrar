@@ -1,0 +1,81 @@
+﻿@page "/Registration"
+
+<h1>Add A Student</h1>
+
+<div class="InputArea">
+    <EditForm Model="@student" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="FName">
+            <label for="fname">First name:</label>
+            <InputText id="fname" @bind-Value="student.FirstName" placeholder="Insert First Name" />
+        </div>
+        <div class="LName">
+            <label for="lname">Last name:</label>
+            <InputText id="lname" @bind-Value="student.LastName" placeholder="Insert Last Name" />
+        </div>
+        <div class="StudentType">
+            <label for="StudentType">Student Type:</label>
+            <InputSelect id="StudentType" @bind-Value="student.StudentType">
+                <option value="" disabled>Select The Student Type</option>
+                <option value="Full-Time">Full-Time</option>
+                <option value="Part-Time">Part-Time</option>
+                <option value="Coop">Coop</option>
+            </InputSelect>
+        </div>
+        <button type="submit" class="StudentAdded">Add Student</button>
+        <a class="Cancel" href="/">Cancel</a>
+    </EditForm>
+</div>
+
+@if (!string.IsNullOrEmpty(validationMessage))
+{
+    <div class="alert alert-danger">
+        @validationMessage
+    </div>
+}
+
+@code {
+    private Student student = new Student();
+    private string validationMessage;
+
+    private void HandleValidSubmit()
+    {
+        // Reset validation message
+        validationMessage = string.Empty;
+
+        // Simple checks for non-empty input
+        if (string.IsNullOrWhiteSpace(student.FirstName))
+        {
+            validationMessage = "First name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(student.LastName))
+        {
+            validationMessage = "Last name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(student.StudentType))
+        {
+            validationMessage = "Student type is required.";
+            return;
+        }
+
+        // Proceed with valid input
+        Console.WriteLine($"Student Added: {student.FirstName} {student.LastName} - {student.StudentType}");
+        validationMessage = "Student added successfully!";
+    }
+
+    public class Student
+    {
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string StudentType { get; set; }
+    }
+}
+
+
+
