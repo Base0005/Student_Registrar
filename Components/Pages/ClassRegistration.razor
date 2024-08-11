@@ -1,38 +1,249 @@
 @page "/ClassRegistration"
+@using MySql.Data.MySqlClient
+@using Dapper
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Web
+@rendermode InteractiveServer
 
-<h1>This Is The Class Registration</h1>
+<pagetitle class="ClassTitle">Class Registration</pagetitle>
 
-<div class="classRegistrationArea">
-    <div class="RegStudentInfo">
-        <h2 class="RegStudentName">
-            John Doe
-        </h2>
-        <h2>-</h2>
-        <h2 class="RegStudentID">
-            404682953
-        </h2>
+@if (student == null)
+{
+    <p>Loading student information...</p>
+}
+else
+{
+    <div class="SelectedStudentInfo">
+        <h3><b>ID</b>: @student.Id</h3>
+        <h3><b>First Name</b>: @student.FirstName</h3>
+        <h3><b>Last Name</b>: @student.LastName</h3>
+        <h3><b>Type</b>: @student.Type</h3>
     </div>
-    <div class="RegClassSelection">
-        <h3 class="RegInstruction">
-            The Following Courses Are Currently For Registration
-        </h3>
-        <formy>
-            <input type="checkbox" id="CST8282" name="CST8282" value="CST8282">
-            <label for="CST8282"> CST8282 Introduction To Database Systems - 4 hours per Week</label><br>
-            <input type="checkbox" id="CST8253" name="CST8253" value="CST8253">
-            <label for="CST8253"> CST8253 Web Programming II - 2 hours per Week</label><br>
-            <input type="checkbox" id="CST8256" name="CST8256" value="CST8256">
-            <label for="CST8256"> CST8256 Web Programming Languages I - 5 hours per Week</label><br>
-            <input type="checkbox" id="CST8255" name="CST8255" value="CST8255">
-            <label for="CST8255"> CST8255 Web Imaging And Animations - 2 hours per Week</label><br>
-            <input type="checkbox" id="CST8254" name="CST8254" value="CST8254">
-            <label for="CST8254"> CST8254 Network Operating Systems - 1 hour per Week</label><br>
-            <input type="checkbox" id="CST2200" name="CST2200" value="CST2200">
-            <label for="CST2200"> CST2200 Data Warehouse Designs - 3 hours per Week</label><br>
-            <input type="checkbox" id="CST2240" name="CST2240" value="CST2240">
-            <label for="CST2240"> CST2240 Advanced Database Topics - 1 hour per Week</label><br>
-            <input type="submit" value="Register Student">
-            <a class="Cancel" href="/">Cancel</a>
-        </formy>
+    <div class="ClassInputArea">
+        @if (ListCourse.Any())
+        {
+            foreach (var course in ListCourse)
+            {
+                <div class="CoursesSelection">
+                    <input type="checkbox" 
+                        id="course-@course.Id" 
+                        @onchange="(e) => OnCheckboxChanged(course.Id, e)" 
+                        checked="@selectedCourses.Contains(course.Id)" />
+                    <label for="course-@course.Id">@course.Code @course.Title - @course.WeeklyHours Hours Per Week</label>
+                </div>
+            }
+        }
+        else
+        {
+            <p>No courses available.</p>
+        }
+
+        <button class="ClassRegistrationBtn" @onclick="RegisterForClasses" disabled="@(validationMessage != null)">Register</button>
+        <a class="cancel" href="/">Cancel</a>
     </div>
-</div>
+}
+
+<NotificationBanner
+    Message="@validationMessage"
+    BannerType="@(!string.IsNullOrEmpty(validationMessage) && validationMessage.Contains("Error") ? "error" : "success")" />
+
+@code {
+    private Student student;
+    private List<Course> ListCourse = new List<Course>();
+    private HashSet<int> selectedCourses = new HashSet<int>();
+    private string validationMessage;
+
+    private readonly Dictionary<string, int> maxWeeklyHours = new Dictionary<string, int>
+    {
+        { "Full Time", 16 },
+        { "Coop", 4 }
+    };
+
+    private readonly Dictionary<string, int> maxCourses = new Dictionary<string, int>
+    {
+        { "Part Time", 3 },
+        { "Coop", 2 }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uri = new Uri(NavigationManager.Uri);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+            student = new Student
+            {
+                Id = int.Parse(query["studentId"]),
+                FirstName = query["firstName"],
+                LastName = query["lastName"],
+                Type = query["type"]
+            };
+
+            // Fetch courses
+            ListCourse = await DisplayCourse();
+
+            // Prepopulate selected courses
+            var registeredCourses = await GetRegisteredCourses(student.Id);
+            selectedCourses = new HashSet<int>(registeredCourses);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing component: {ex.Message}");
+        }
+    }
+
+    private async Task<List<Course>> DisplayCourse()
+    {
+        string connectionString = "Server=localhost;Database=Registrar;Uid=root;Pwd=;Charset=utf8;Port=3306;SslMode=none";
+        try
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                string query = "SELECT * FROM Course";
+                var courses = await connection.QueryAsync<Course>(query);
+                return courses.ToList();
+            }
+        }
+        catch (MySqlException sqlEx)
+        {
+            Console.WriteLine($"SQL Error fetching courses: {sqlEx.Message}");
+            validationMessage = "Error fetching course data. Please try again later.";
+            return new List<Course>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching courses: {ex.Message}");
+            validationMessage = "An unexpected error occurred. Please try again later.";
+            return new List<Course>();
+        }
+    }
+
+    private async Task<List<int>> GetRegisteredCourses(int studentId)
+    {
+        string connectionString = "Server=localhost;Database=Registrar;Uid=root;Pwd=;Charset=utf8;Port=3306;SslMode=none";
+        try
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                string query = "SELECT CourseId FROM Registration WHERE StudentId = @StudentId";
+                var courseIds = await connection.QueryAsync<int>(query, new { StudentId = studentId });
+                return courseIds.ToList();
+            }
+        }
+        catch (MySqlException sqlEx)
+        {
+            Console.WriteLine($"SQL Error fetching registered courses: {sqlEx.Message}");
+            validationMessage = "Error fetching registered courses. Please try again later.";
+            return new List<int>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching registered courses: {ex.Message}");
+            validationMessage = "An unexpected error occurred. Please try again later.";
+            return new List<int>();
+        }
+    }
+
+    private void OnCheckboxChanged(int courseId, ChangeEventArgs e)
+    {
+        var isChecked = (bool)e.Value;
+        if (isChecked)
+        {
+            selectedCourses.Add(courseId);
+        }
+        else
+        {
+            selectedCourses.Remove(courseId);
+        }
+
+        validationMessage = null;
+    }
+
+    private async Task RegisterForClasses()
+    {
+        Console.WriteLine("RegisterForClasses method called");
+
+        var totalHours = ListCourse
+            .Where(course => selectedCourses.Contains(course.Id))
+            .Sum(course => course.WeeklyHours);
+
+        var selectedCourseCount = selectedCourses.Count;
+
+        // Validation checks
+        if (student.Type == "Full Time" && totalHours > maxWeeklyHours["Full Time"])
+        {
+            validationMessage = $"Total weekly hours ({totalHours}) exceed the limit for Full Time students (16 hours).";
+            return;
+        }
+        if (student.Type == "Part Time" && selectedCourseCount > maxCourses["Part Time"])
+        {
+            validationMessage = $"Total number of courses ({selectedCourseCount}) exceeds the limit for Part Time students (3 courses).";
+            return;
+        }
+        if (student.Type == "Coop")
+        {
+            if (totalHours > maxWeeklyHours["Coop"])
+            {
+                validationMessage = $"Total weekly hours ({totalHours}) exceed the limit for Coop students (4 hours).";
+                return;
+            }
+            if (selectedCourseCount > maxCourses["Coop"])
+            {
+                validationMessage = $"Total number of courses ({selectedCourseCount}) exceeds the limit for Coop students (2 courses).";
+                return;
+            }
+        }
+
+        validationMessage = null;
+
+        try
+        {
+            string connectionString = "Server=localhost;Database=Registrar;Uid=root;Pwd=;Charset=utf8;Port=3306;SslMode=none";
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                // Delete all existing registrations for the student
+                string deleteQuery = "DELETE FROM Registration WHERE StudentId = @StudentId";
+                await connection.ExecuteAsync(deleteQuery, new { StudentId = student.Id });
+
+                // Insert new registrations
+                foreach (var courseId in selectedCourses)
+                {
+                    string insertQuery = "INSERT INTO Registration (StudentId, CourseId) VALUES (@StudentId, @CourseId)";
+                    var parameters = new { StudentId = student.Id, CourseId = courseId };
+                    await connection.ExecuteAsync(insertQuery, parameters);
+                    Console.WriteLine($"Student {student.FirstName} registered for course ID: {courseId}");
+                }
+
+                // Redirect after successful registration
+                NavigationManager.NavigateTo("/");
+            }
+        }
+        catch (MySqlException sqlEx)
+        {
+            Console.WriteLine($"SQL Error during registration: {sqlEx.Message}");
+            validationMessage = "An error occurred during registration. Please try again later.";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Unexpected error during registration: {ex.Message}");
+            validationMessage = "An unexpected error occurred. Please try again later.";
+        }
+    }
+
+    public class Student
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Type { get; set; }
+    }
+
+    public class Course
+    {
+        public int Id { get; set; }
+        public string Code { get; set; }
+        public string Title { get; set; }
+        public int WeeklyHours { get; set; }
+    }
+}

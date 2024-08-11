@@ -1,50 +1,84 @@
 ﻿@page "/"
+@using MySql.Data.MySqlClient
+@using Dapper
+@using Registrar.Services
+@using Microsoft.AspNetCore.Components.Web
 
-
-<PageTitle>Home</PageTitle>
 <div class="GridHeader">
-    <h1 class="Title">
-        Student
-    </h1>
-<a href="/Registration" class="button">
-    +
-</a>
+    <h1 class="Title">Students</h1>
+    <a href="/Registration" class="button">+</a>
 </div>
-<ul class="StudentList">
-    <ul class="GridTitle">
-        <h1>
-            ID
-        </h1>
-        <h1>
-            First Name
-        </h1>
-        <h1>
-            Last Name
-        </h1>
-        <h1>
-            Type
-        </h1>
-        <h1>
-            Action
-        </h1>
+
+@if (students == null)
+{
+    <p>Loading...</p>
+}
+else if (students.Count == 0)
+{
+    <p>No students found.</p>
+}
+else
+{
+    <ul class="StudentList">
+        <li class="GridTitle">
+            <h1>ID</h1>
+            <h1>First Name</h1>
+            <h1>Last Name</h1>
+            <h1>Type</h1>
+            <h1>Action</h1>
+        </li>
+        @foreach (var student in students)
+        {
+            <li class="Student">
+                <div class="StudentId"><h3>@student.Id</h3></div>
+                <div class="StudentFirstName"><h3>@student.FirstName</h3></div>
+                <div class="StudentLastName"><h3>@student.LastName</h3></div>
+                <div class="StudentType"><h3>@student.Type</h3></div>
+                <div class="Action">
+                    <a class="StudentRegister" href="/ClassRegistration?studentId=@student.Id&firstName=@student.FirstName&lastName=@student.LastName&type=@student.Type"><h3>Register</h3></a>
+                </div>
+            </li>
+        }
     </ul>
-    <ul class="Student">
-        <ul class="StudentId">
-            <h3>404682953</h3>
-        </ul>
-        <ul class="StudentFirstName">
-            <h3>John</h3>
-        </ul>
-        <ul class="StudentLastName">
-            <h3>Doe</h3>
-        </ul>
-        <ul class="StudentType">
-            <h3>Full-Time</h3>
-        </ul>
-        <ul class="Action">
-            <a href="/ClassRegistration">
-                <h3>Register</h3>
-            </a>
-        </ul>
-    </ul>
-</ul>
+}
+
+<NotificationBanner
+    Message="@notificationMessage"
+    BannerType="@(!string.IsNullOrEmpty(notificationMessage) && notificationMessage.Contains("Error") ? "error" : "success")" />
+
+@code {
+    private List<Student> students;
+    private string notificationMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            students = await DisplayStudent();
+        }
+        catch (Exception ex)
+        {
+            notificationMessage = $"An error occurred: {ex.Message}";
+        }
+    }
+
+    public class Student
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Type { get; set; }
+        public List<string> Courses { get; set; } = new List<string>();
+    }
+
+    private async Task<List<Student>> DisplayStudent()
+    {
+        string connectionString = "Server=localhost;Database=Registrar;Uid=root;Pwd=;Charset=utf8;Port=3306;SslMode=none";
+        using (var connection = new MySqlConnection(connectionString))
+        {
+            string query = "SELECT * FROM Student";
+            var students = await connection.QueryAsync<Student>(query);
+            return students.ToList();
+        }
+    }
+}
