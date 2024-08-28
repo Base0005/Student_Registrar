@@ -19,6 +19,15 @@ else
         <h3><b>Last Name</b>: @student.LastName</h3>
         <h3><b>Type</b>: @student.Type</h3>
     </div>
+    @if (student.Type == "Full Time"){
+        <h2>***Full-Time Students Limits: 16 hours***</h2>
+    }
+    if (student.Type == "Part Time"){
+        <h2>***Part-Time Students Limits: 3 courses***</h2>
+    }
+    else if(student.Type == "Coop"){
+        <h2>***Coop Students Limits: 4 hours and 2 courses***</h2>
+    }
     <div class="ClassInputArea">
         @if (ListCourse.Any())
         {
