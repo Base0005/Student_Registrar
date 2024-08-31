@@ -2,20 +2,17 @@ using Registrar.Components;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MySql.Data.MySqlClient;
 using Dapper;
-using Registrar.Services;
+using Registrar.Services; 
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Retrieve the connection string from environment variables
-var connectionString = Environment.GetEnvironmentVariable("JAWSDB_URL") ??
-                       "Server=muowdopceqgxjn2b3.cbetxkdyhwsb.us-east-1.rds.amazonaws.com;Database=uzmhzrmllkprrfer;Uid=b7zjvc2wwna6iiph;Pwd=q3is20ce4ntrw416;Charset=utf8;Port=3306;SslMode=none";
 
 // Register services
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSingleton(new DataService(connectionString));
+builder.Services.AddSingleton(new DataService("Server=localhost;Database=Registrar;Uid=root;Pwd=;Charset=utf8;Port=3306;SslMode=none"));
 
 // Register StudentService
 builder.Services.AddScoped<StudentService>();

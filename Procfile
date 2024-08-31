@@ -1,2 +1,2 @@
-web: dotnet student_registrar.dll
+web: dotnet student-registrar.dll
 release: ./run_sql.sh
