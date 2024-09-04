@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DATABASE_URL=$(heroku config:get JAWSDB_URL)
+
 # Use environment variables for Heroku deployment
 SERVER=${DB_HOST:-localhost}
 DATABASE=${DB_NAME:-Registrar}
